@@ -7,14 +7,15 @@ Created on Mon Jun 10 18:45:03 2013
 
 # Se importan las librerías necesarias
 
+import sys
+
+
+
 from numpy import array, zeros, ones, pi, exp, r_, dot, diagflat
 import numpy as np
 from scipy.sparse import csr_matrix, hstack, vstack
 from scipy.sparse.linalg import spsolve
 
-from pandas import  DataFrame
-import pandas as pd
-pd.options.display.max_columns = 13
 
 
 from sistemas import sistemas
@@ -227,20 +228,72 @@ def solucion_final(nodos, lineas, Ybus, Cp, Cq, Yp, Yq):
     
     
 
-def imprime(datos, items, decimales = 3):
-    columnas = []
-    valores = []
-    
-    for key in items:
-        columnas.append(key)
-        valores.append(np.round(datos[key], decimales))
-    valores = map(list, zip(*valores))
+def imprime(nodos, lineas, dec = 3):
+    """ Función para imprimir los resultados
+    """
+    # Se despliegan resultados por salida standard    
+    desp = sys.stdout.write
+    desp('\n===================================================================')
+    desp('\n|                               NODOS                             |')
+    desp('\n===================================================================')
+    desp('\nNodo| Voltaje  |  Angulo  |    Generacion   |       Carga     ') 
+    desp('\n    |          | (grados) |   W    |   VAR  |   W    |  VAR   ')
+    fmt1 = '\n{:<4} {:<10} {:<10}'
+    for p in range(len(nodos['Nodo'])):
 
-    df = DataFrame(data= valores,  columns=columnas)
-    return df
+            
+        desp(fmt1.format(nodos['Nodo'][p], round(nodos['Voltaje'][p], 4), round(nodos['Angulo'][p], 4) ))
+        
+        if nodos['Pgen'][p] == 0:
+            desp(' {:^8}'.format('--'))
+        else:
+            desp(' {: ^8}'.format(round(nodos['Pgen'][p], 3)))
+        if nodos['Qgen'][p] == 0:
+            desp(' {:^8}'.format('--'))
+        else:
+            desp(' {: ^8}'.format(round(nodos['Qgen'][p], 3)))
+        if nodos['Pcar'][p] == 0:
+            desp(' {:^8}'.format('--'))
+        else:
+            desp(' {: ^8}'.format(round(nodos['Pcar'][p], 3)))
+        if nodos['Qcar'][p] == 0:
+            desp(' {:^8}'.format('--'))
+        else:
+            desp(' {:^8}'.format(round(nodos['Qcar'][p], 3)))
+
+    fmt2 = '\n\nTotales                     {:^8} {:^8} {:^8} {:^8}'
+    desp(fmt2.format(round(sum(nodos['Pgen']), 3), round(sum(nodos['Qgen']), 3), round(sum(nodos['Pcar'])  , 3), round(sum(nodos['Qcar']), 3)))
+    desp('\n\n')
+
+    desp('\n================================================================================')
+    desp('\n|                          LINEAS Y TRANSFORMADORES                            |')
+    desp('\n================================================================================')
+    desp('\nLinea|  Nodo   |  Nodo   | Inyección envío |Inyección llegada|Pérdidas (I^2 * Z)') 
+    desp('\n  #  |  envío  | llegada |   W    |   VAR  |   W    |   VAR  |    W   |  VAR   |')
+    fmt3 = '\n{:^5} {:^9} {:^9} {: ^8} {: ^8} {: ^8} {: ^8} {: ^8} {: ^8}'
+    fmt4 = '\n\nTotales                                                       {: ^8} {: ^8} '
+    
+    for t in range(len(lineas['NodoEnvio'])):
+        p = lineas['NodoEnvio'][t]
+        q = lineas['NodoLlegada'][t]
+        l = t+1
+
+        Ppq = lineas['P_envio'][t]
+        Pqp = lineas['P_llegada'][t]
+        Qpq = lineas['Q_envio'][t]
+        Qqp = lineas['Q_llegada'][t]
+        Pper = lineas['P_perdidas'][t]
+        Qper = lineas['Q_perdidas'][t]
+
+        
+        desp(fmt3.format(l, p, q, round(Ppq, 3), round(-Qpq, 3), round(Pqp, 3), round(-Qqp, 3), round(Pper, 3), round(Qper, 3)))                
+
+    
+    desp(fmt4.format(round(sum(lineas['P_perdidas']), 3), round(-sum(lineas['Q_perdidas']), 3)))
+    desp('\n')
     
 def newton(nodos, lineas):
-    """ Método de Newtón-Raphson para el cálculo de estado periódico en una 
+    """ Método de Newton-Raphson para el cálculo de estado periódico en una 
     red eléctrica de potencia.
     """
     
@@ -292,9 +345,7 @@ def newton(nodos, lineas):
     nodos['Nodo'] +=1
     lineas['NodoEnvio'] +=1
     lineas['NodoLlegada'] +=1
-    print imprime(nodos, ['Nodo', 'Voltaje', 'Angulo', 'Pcar', 'Qcar', 'Pgen', 'Qgen' ])    
-    print imprime(lineas, ['NodoEnvio', 'NodoLlegada', 'P_envio', 'Q_envio', 'P_llegada', 'Q_llegada',
-                           'P_perdidas', 'Q_perdidas'])
+    imprime(nodos, lineas)
 
     nodos['Nodo'] -=1
     lineas['NodoEnvio'] -=1
@@ -308,7 +359,6 @@ def main():
     
     nodos, lineas = sistemas('5_nodos')
     nodos, lineas = newton(nodos, lineas)
-    #lineas['Activo'] = array([1,1,1,1,0,1,1])
     nodos['Pcar'] *= 1.1
     nodos['Qcar'] *= 1.1
     nodos, lineas = newton(nodos, lineas)
