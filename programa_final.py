@@ -84,11 +84,11 @@ def crea_ybus(nodos, lineas):
     # Modificando al tap complejo
     Tap *= exp(1j*Angulo)
     # Admitancias de linea
-    Ypp = (Ys + 1j*Bc)/(Tap*Tap.conj())
+    Yqq = Ys + 1j*Bc
+    Ypp = Yqq/(Tap*Tap.conj())
     Ypq = -Ys/Tap.conj()
     Yqp = -Ys/Tap
-    Yqq = Ys + 1j*Bc
-    
+
     # Matriz de conectividad
     Cp = csr_matrix((ones(nl), (range(nl), NP)), (nl, m))  
     Cq = csr_matrix((ones(nl), (range(nl), NQ)), (nl, m))
