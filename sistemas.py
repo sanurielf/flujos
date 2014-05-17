@@ -14,6 +14,9 @@ import sys
 # Se regresa un diccionario con los datos del sistema
 
 def sistemas(nombre):
+    """Función para cargar los sistemas a analizar
+    Se regresa un diccionario con los datos del sistema"""
+
     if nombre == '3_nodos':
             nodos = {'Nodo': array([0, 1, 2]),
                      'Voltaje': array([1.05, 1.03, 1]),

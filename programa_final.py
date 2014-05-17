@@ -43,9 +43,11 @@ def crea_ybus(nodos, lineas):
     elemento
     """
     # Número de nodos
-    m = nodos['num']
+    m = len(nodos['Nodo'])
     # Número de líneas
-    nl = lineas['num']
+    nl = len(lineas['NodoEnvio'])
+    # Se hacen alias a los datos del sistema para manejarlos de forma
+    # compacta
     # Resistencia
     R = lineas['R']
     # Reactancia
@@ -97,9 +99,11 @@ def crea_ybus(nodos, lineas):
     Yq = csr_matrix((r_[Yqp, Yqq], (indices, r_[NP, NQ])), (nl, m))
     
     # Formacion final de Ybus
-    
     Ybus = Cp.T * Yp + Cq.T * Yq
     
+    # Las matrices de nodos de envío y de llegada se ocupan
+    # para calcular el flujo a través de cada elemento de
+    # transmisión
     return Ybus, Cp, Cq, Yp, Yq
     
 def actualizar(nodos, Ybus):
@@ -109,7 +113,10 @@ def actualizar(nodos, Ybus):
     
     return nodos
     
-def calcula_delta(nodos):
+def Fx(nodos):
+    """ Función para obtener las ecuaciones de balance de potencia
+    nodal
+    """
     m = nodos['num']
     ns = nodos['ns']
     npv = nodos['npv']    
@@ -125,12 +132,19 @@ def calcula_delta(nodos):
     # tanto en potencia activa como en reactiva
     delta[ns, :] = 0
     # Si se tienen nodos PV se elimina el desbalance de potencia reactiva
+    # en estos
     if npv.shape[0] >= 1:
         delta[npv, 1] = 0
     
     return delta
     
-def jacobiana(nodos, Ybus):
+def Jx(nodos, Ybus):
+    """ Función para obtener la matriz jacobiana utilizanco transformaciones
+    singulares.
+    Para más información de este procedimiento consultar el apéndice de:
+
+
+    """
     
     Ibus = nodos['Ibus']
     Vbus = nodos['Vbus']
@@ -151,7 +165,7 @@ def jacobiana(nodos, Ybus):
     # Se calculan las derivadas parciales
     Sbus_ang = 1j * diagV.conj() * (Ybus * diagV - diagI)    
     Sbus_mag = diagV.conj() * Ybus * diagE + diagI*diagE.conj()
-        
+     
     jac = vstack([hstack([-Sbus_ang.real, -Sbus_mag.real]),
                  hstack([Sbus_ang.imag, Sbus_mag.imag])], format='lil')
     
@@ -171,6 +185,9 @@ def jacobiana(nodos, Ybus):
     return jac
     
 def solucion_final(nodos, lineas, Ybus, Cp, Cq, Yp, Yq):
+    """ Calcula la solución final, la potencia generada en nodos PV
+    y los flujos a través de líneas
+    """
     
     ns = nodos['ns']
     npv = nodos['npv']
@@ -222,7 +239,10 @@ def imprime(datos, items, decimales = 3):
     df = DataFrame(data= valores,  columns=columnas)
     return df
     
-def flujos_newton(nodos, lineas):
+def newton(nodos, lineas):
+    """ Método de Newtón-Raphson para el cálculo de estado periódico en una 
+    red eléctrica de potencia.
+    """
     
     # Calcular la matriz Ybus
     Ybus, Cp, Cq, Yp, Yq = crea_ybus(nodos, lineas)
@@ -242,7 +262,7 @@ def flujos_newton(nodos, lineas):
         # Ibus y Sbus
         nodos = actualizar(nodos, Ybus)
         # Se calcula el desbalance de potencia
-        delta = calcula_delta(nodos)
+        delta = Fx(nodos)
         # Máximo error
         error = np.max(np.abs(delta))
         if error <= tol:
@@ -250,7 +270,7 @@ def flujos_newton(nodos, lineas):
             break
         ite += 1
         # Se construye la matriz jacobiana
-        jac = jacobiana(nodos, Ybus)
+        jac = Jx(nodos, Ybus)
         # Se concatenan en forma de renglón la columna \Delta P y
         # \Delta Q
         B = r_[delta[:, 0], delta[:, 1]]
@@ -283,13 +303,15 @@ def flujos_newton(nodos, lineas):
     
         
 def main():
+    """ Función main de prueba
+    """
     
     nodos, lineas = sistemas('5_nodos')
-    nodos, lineas = flujos_newton(nodos, lineas)
+    nodos, lineas = newton(nodos, lineas)
     #lineas['Activo'] = array([1,1,1,1,0,1,1])
     nodos['Pcar'] *= 1.1
     nodos['Qcar'] *= 1.1
-    nodos, lineas = flujos_newton(nodos, lineas)
+    nodos, lineas = newton(nodos, lineas)
     
 
 if __name__ == '__main__':
